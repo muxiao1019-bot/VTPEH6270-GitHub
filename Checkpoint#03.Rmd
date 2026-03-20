@@ -1,0 +1,136 @@
+---
+title: "Checkpoint#03_Yihan Zhong"
+author: "Yihan Zhong"
+date: "2026-02-20"
+output: pdf_document
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+# Research Question and Background
+
+## Research Question:
+Is smoking prevalence associated with education level among adults?
+
+## Scientific Plausibility and Context.
+
+Tobacco use remains strongly patterned by social and socioeconomic factors, with educational attainment playing a central role in shaping smoking behaviors. Socioeconomic gradients in tobacco use are well documented, with individuals of lower socioeconomic status consistently exhibiting higher smoking prevalence and lower cessation success. A comprehensive review of the literature found that smoking uptake and persistence are more common among disadvantaged populations, partly due to structural and behavioral factors that reinforce tobacco use patterns [@hiscock2012].
+
+Recent research has further highlighted the complex interplay between educational attainment and smoking risk. Genetic epidemiology studies suggest that the genetic architecture of smoking behavior partially overlaps with educational attainment, indicating that education-related factors contribute to both behavioral and biological pathways influencing tobacco use [@pasman2022]. These findings underscore that smoking disparities are not solely behavioral but reflect multifactorial influences involving social environments and underlying susceptibility.
+
+In addition to biological and behavioral mechanisms, tobacco-related disparities are consistently observed across socially disadvantaged populations. Research focused on tobacco use disorder populations emphasizes that individuals with lower socioeconomic status experience disproportionate tobacco-related harms and are often underrepresented in treatment research, reinforcing the persistence of smoking-related health inequities [@weinberger2022]. Together, these findings provide strong scientific rationale for examining the relationship between smoking prevalence and educational attainment in population-based datasets.
+
+```{r, results='hide'}
+
+library(haven)
+library(dplyr)
+library(ggplot2)
+
+#input data
+setwd("C:/Users/HUAWEI/Desktop/MPH 2026 spring/6270/cp03/LLCP2024XPT")
+brfss <- read_xpt("LLCP2024.XPT")
+
+
+```
+
+# Data Preperation
+
+```{r}
+
+names(brfss)[grep("BMI", names(brfss))]
+"MENTHLTH" %in% names(brfss)
+
+brfss_clean <- brfss %>%
+  dplyr::select(`_RFSMOK3`, EDUCA, `_BMI5`, MENTHLTH) %>%
+  dplyr::filter(!is.na(`_RFSMOK3`), !is.na(EDUCA))
+
+# Variable overview table
+variable_info <- data.frame(
+  Variable = c("_RFSMOK3", "EDUCA", "_BMI5", "MENTHLTH"),
+  Description = c("Smoking status", "Education level", "Body Mass Index", "Poor mental health days"),
+  Type = c("Categorical", "Categorical", "Continuous", "Continuous"),
+  Class = sapply(brfss_clean[, c("_RFSMOK3", "EDUCA", "_BMI5", "MENTHLTH")], class)
+)
+
+knitr::kable(variable_info, caption = "Overview of selected variables")
+```
+
+# Grouped Summary Statistics
+```{r}
+summary_table <- brfss_clean %>%
+  group_by(EDUCA) %>%
+  summarise(
+    n = n(),
+    mean_BMI = mean(`_BMI5`, na.rm = TRUE),
+    median_BMI = median(`_BMI5`, na.rm = TRUE),
+    mean_mental = mean(MENTHLTH, na.rm = TRUE)
+  )
+
+knitr::kable(summary_table, caption = "Descriptive statistics stratified by education level")
+```
+
+The grouped descriptive statistics suggest modest variation across education levels. Individuals with higher educational attainment tend to report slightly lower BMI and fewer days of poor mental health, indicating potential health differences across educational strata.
+
+# Comparative Visualizations
+## Association Visualization
+
+```{r}
+smoke_by_edu <- brfss_clean %>%
+  mutate(current_smoker = ifelse(`_RFSMOK3` == 1, 1, 0)) %>%
+  group_by(EDUCA) %>%
+  summarise(smoking_prev = mean(current_smoker, na.rm = TRUE))
+
+ggplot(smoke_by_edu, aes(x = factor(EDUCA), y = smoking_prev)) +
+  geom_col() +
+  theme_minimal() +
+  labs(
+    title = "Smoking Prevalence by Education Level",
+    x = "Education level",
+    y = "Smoking prevalence",
+    caption = "Smoking prevalence decreases with higher education"
+  )
+
+```
+The bar chart demonstrates an inverse association between education and smoking prevalence. Smoking appears more common among individuals with lower educational attainment and decreases with higher levels of education.
+
+```{r}
+mean_bmi <- mean(brfss_clean$`_BMI5`, na.rm = TRUE)
+median_bmi <- median(brfss_clean$`_BMI5`, na.rm = TRUE)
+
+ggplot(brfss_clean, aes(x = `_BMI5`)) +
+  geom_histogram(bins = 30, color = "black") +
+  geom_vline(xintercept = mean_bmi, linetype = "dashed") +
+  geom_vline(xintercept = median_bmi, linetype = "dotted") +
+  theme_classic() +
+  labs(
+    title = "Distribution of BMI",
+    x = "BMI",
+    y = "Count"
+  )
+```
+
+The histogram shows that BMI values are broadly centered around the mid-range, with mean and median values relatively close, suggesting a moderately symmetric distribution. A slight right skew is observed, indicating that a smaller proportion of respondents have higher BMI values.
+
+```{r}
+
+ggplot(brfss_clean, aes(x = `_BMI5`, y = MENTHLTH)) +
+  geom_point(alpha = 0.3) +
+  theme_classic() +
+  labs(
+    title = "BMI vs Poor Mental Health Days",
+    x = "BMI",
+    y = "Days of poor mental health"
+  )
+
+ggsave("smoking_education_plot.pdf", width = 6, height = 4)
+```
+
+The scatterplot shows a wide dispersion of points with no strong linear pattern between BMI and poor mental health days. This suggests that the relationship between BMI and mental health may be weak or influenced by other unmeasured factors.
+
+# AI Use Disclosure Statement
+
+This document was prepared with assistance from ChatGPT. The tool was used to help debug R code, organize the R Markdown structure, and generate initial drafts of visualizations. All results were reviewed and interpreted by the author.

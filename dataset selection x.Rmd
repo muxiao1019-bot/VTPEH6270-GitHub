@@ -1,0 +1,220 @@
+---
+title: "dataset selection"
+author: "Yihan Zhong"
+date: "2026-02-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Introduction
+
+## Background
+
+This project examines the distribution and accessibility of COVID-19 treatments across healthcare facilities in the United States. Understanding treatment availability patterns is essential for public health preparedness and equitable healthcare access. The COVID-19 pandemic highlighted significant disparities in therapeutic access, with location and facility type influencing patient outcomes. This dataset, maintained by the Administration for Strategic Preparedness and Response (ASPR), tracks outpatient COVID-19 and influenza medication inventories at various healthcare sites. Analyzing this data can inform resource allocation strategies and identify gaps in treatment accessibility across different regions and facility types.
+
+## Project Question
+
+What factors are associated with COVID-19 treatment availability at healthcare facilities? How does treatment inventory vary by geographic location, facility type, and time period?
+
+## Data Set Overview
+
+This dataset is obtained from the U.S. Department of Health and Human Services (HHS) Administration for Strategic Preparedness and Response (ASPR), available through HealthData.gov. The data identifies healthcare sites with commercially purchased COVID-19 and influenza treatment inventories, including locations participating in the Paxlovid Patient Assistance Program. The study population includes healthcare facilities across the United States that have self-attested to having treatment inventory within recent months. Data collection is ongoing, with facilities reporting inventory status periodically to maintain current information on treatment availability.
+
+**Data Source Link:** https://healthdata.gov/ASPR/COVID-19-Treatments/xkzp-zhs7/about_data
+
+# data set exploration
+
+```{r results='hide'}
+# Install packages
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+install.packages("kableExtra")
+tinytex::is_tinytex()
+
+# Load libraries
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+
+# Import data
+data <- read.csv("C:/Users/HUAWEI/Desktop/MPH 2026 spring/6270/dataset selection/COVID-19_Treatments_20260205.csv")
+str(data)
+head(data)
+
+# Check if data is in tidy format
+str(data)
+
+# Convert variables to appropriate classes
+data <- data %>%
+  mutate(
+    # Categorical variables (for grouping/filtering)
+    State = as.factor(State),
+    City = as.factor(City),
+    Has.Paxlovid = as.factor(Has.Paxlovid),
+    Has.Lagevrio = as.factor(Has.Lagevrio),
+    Is.PAP.Site = as.factor(Is.PAP.Site),
+    
+    # Numeric variables (for plots)
+    Latitude = as.numeric(Latitude),
+    Longitude = as.numeric(Longitude),
+    
+    # Date variable
+    Last.Report.Date = as.Date(Last.Report.Date),
+    
+    # Keep as character
+    Provider.Name = as.character(Provider.Name)
+  )
+
+data <- data %>%
+  select(-Provider.Note)
+names(data)
+```
+# Variable Overview
+
+```{r results='hide'}
+
+# Rename variables for easier use 
+data <- data %>%
+  rename(
+    provider_name = Provider.Name,
+    city = City,
+    state = State,
+    latitude = Latitude,
+    longitude = Longitude,
+    last_report_date = Last.Report.Date,
+    is_pap_site = Is.PAP.Site,
+    has_paxlovid = Has.Paxlovid,
+    has_lagevrio = Has.Lagevrio,
+    has_commercial_product = Has.Commercial.Product
+  )
+
+# Save documentation of name changes to CSV
+name_changes <- data.frame(
+  Original_Name = c("Provider.Name", "City", "State", "Latitude", 
+                    "Longitude", "Last.Report.Date", "Is.PAP.Site",
+                    "Has.Paxlovid", "Has.Lagevrio", "Has.Commercial.Product"),
+  New_Name = c("provider_name", "city", "state", "latitude",
+               "longitude", "last_report_date", "is_pap_site",
+               "has_paxlovid", "has_lagevrio", "has_commercial_product")
+)
+
+write.csv(name_changes, "variable_name_documentation.csv", row.names = FALSE)
+
+# Select 10 most important variables (meets criteria: 2+ numeric, 2+ categorical)
+data_subset <- data %>%
+  select(provider_name, state, city, 
+         latitude, longitude,
+         last_report_date,
+         is_pap_site, has_paxlovid, has_lagevrio,
+         has_commercial_product)
+
+# Create variable overview table
+variable_info <- data.frame(
+  Variable_Name = c("provider_name", "state", "city", 
+                    "latitude", "longitude",
+                    "last_report_date",
+                    "is_pap_site", "has_paxlovid", 
+                    "has_lagevrio", "has_commercial_product"),
+  
+  Type = c("Categorical", "Categorical", "Categorical",
+           "Continuous", "Continuous",
+           "Discrete",
+           "Categorical", "Categorical", 
+           "Categorical", "Categorical"),
+  
+  Class = c("character", "factor", "factor",
+            "numeric", "numeric",
+            "Date",
+            "factor", "factor", 
+            "factor", "factor"),
+  
+  Description = c(
+    "Healthcare facility name",
+    "U.S. State or territory",
+    "City location",
+    "Latitude coordinate (degrees)",
+    "Longitude coordinate (degrees)",
+    "Date of last inventory report",
+    "Patient Assistance Program participation (true/false)",
+    "Paxlovid availability (true/false)",
+    "Lagevrio availability (true/false)",
+    "Commercial product availability (true/false)"
+  )
+)
+
+# Display table with caption
+kable(variable_info, 
+      caption = "Table 1: Overview of Selected Variables in the COVID-19 Treatment Dataset",
+      booktabs = TRUE,
+      col.names = c("Variable Name", "Type", "Class", "Description")) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "scale_down"))
+```
+# Data Visulization
+## Histogram
+```{r results='hide'}
+mean_lat <- mean(data$latitude, na.rm = TRUE)
+median_lat <- median(data$latitude, na.rm = TRUE)
+
+ggplot(data, aes(x = latitude)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "black", alpha = 0.7) +
+  geom_vline(aes(xintercept = mean_lat, color = "Mean"), linewidth = 1.2) +
+  geom_vline(aes(xintercept = median_lat, color = "Median"), linetype = "dashed", linewidth = 1.2) +
+  scale_color_manual(name = "Statistics", values = c(Mean = "red", Median = "blue")) +
+  labs(title = "Distribution of Healthcare Facility Latitude",
+       x = "Latitude (degrees)",
+       y = "Frequency",
+       caption = "Figure 1: Distribution of latitude coordinates for healthcare facilities offering COVID-19 treatments. Red line indicates mean, blue dashed line indicates median.") +
+  theme_minimal() +
+  theme(legend.position = "top",
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.caption = element_text(hjust = 0, size = 9))
+```
+## scatter plot
+```{r results='hide'}
+
+ggplot(data, aes(x = longitude, y = latitude)) +
+  geom_hex(bins = 70) +
+  scale_fill_viridis_c(option = "plasma", name = "Facility\nCount") +
+  scale_x_continuous(limits = c(-180, -60), expand = c(0.01, 0)) +
+  scale_y_continuous(limits = c(15, 72), expand = c(0.01, 0)) +
+  coord_fixed(ratio = 1.3) +
+  labs(title = "Geographic Distribution of Healthcare Facilities",
+       x = "Longitude (degrees)",
+       y = "Latitude (degrees)",
+       caption = "Figure 2: Heat map showing the geographic distribution of healthcare facilities with COVID-19 treatment inventory across the United States. Color intensity represents facility density in each hexagonal area.") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.caption = element_text(hjust = 0, size = 9),
+    axis.title = element_text(face = "bold"),
+    legend.position = "right"
+  )
+```
+```{r}
+# Alternative Scatterplot - Traditional point plot
+ggplot(data, aes(x = longitude, y = latitude)) +
+  geom_point(alpha = 0.2, size = 0.5, color = "steelblue") +
+  scale_x_continuous(limits = c(-180, -60)) +
+  scale_y_continuous(limits = c(15, 72)) +
+  labs(title = "Geographic Distribution of Healthcare Facilities",
+       x = "Longitude (degrees)",
+       y = "Latitude (degrees)",
+       caption = "Figure 3: Scatterplot showing the geographic coordinates of healthcare facilities with COVID-19 treatment inventory. Each point represents one facility.") +
+  theme_classic() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.caption = element_text(hjust = 0, size = 9),
+    axis.title = element_text(face = "bold")
+  )
+```
+
+# AI Use Disclosure Statement
+
+**Did you use AI?** Yes
+
+**Disclosure Statement:**
+
+This document was created with assistance from Claude AI to generate R code templates for data visualization and table formatting. All code was reviewed, customized for the COVID-19 Treatments dataset, and tested by the author.
